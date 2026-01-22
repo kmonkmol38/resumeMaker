@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Maker by ALI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Roboto:wght@400;700&family=Source+Sans+Pro:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --font-family: 'Roboto', sans-serif;
+        }
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        #resume-preview {
+            font-family: var(--font-family);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease-in-out;
+            aspect-ratio: 210 / 297; /* A4 Paper aspect ratio */
+            color: var(--text-color, #333333);
+        }
+        .sidebar {
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) #e5e7eb;
+        }
+        .sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: #e5e7eb;
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background-color: var(--primary-color);
+            border-radius: 10px;
+            border: 2px solid #e5e7eb;
+        }
+        .theme-card, .template-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .theme-card:hover, .template-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .theme-card.selected, .template-card.selected {
+            box-shadow: 0 0 0 3px var(--primary-color);
+            transform: translateY(-2px);
+        }
+        .rating-stars .star {
+            cursor: pointer;
+            color: #d1d5db; /* gray-400 */
+            transition: color 0.2s;
+        }
+        .rating-stars .star:hover,
+        .rating-stars .star.selected {
+            color: #f59e0b; /* amber-500 */
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #resume-preview, #resume-preview * {
+                visibility: visible;
+            }
+            #resume-preview {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                box-shadow: none;
+                border: none;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.24.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-100 font-sans">
+    <div id="app" class="flex flex-col md:flex-row h-screen">
+        <!-- Sidebar - Form -->
+        <aside class="sidebar w-full md:w-1/2 lg:w-1/3 bg-white p-6 overflow-y-auto no-print">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">ALI's Resume Maker</h1>
+            
+            <!-- Customization Panel -->
+            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Customize</h2>
+                
+                <!-- CV Template -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-600 mb-2">CV Template</label>
+                    <div id="template-selector" class="grid grid-cols-3 gap-3"></div>
+                </div>
+
+                <!-- Theme Selector -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-600 mb-2">Color Theme</label>
+                    <div id="theme-selector" class="grid grid-cols-3 md:grid-cols-4 gap-3"></div>
+                </div>
+
+                <!-- Font Selector -->
+                <div class="mb-4">
+                    <label for="font-select" class="block text-sm font-medium text-gray-600">Font Style</label>
+                    <select id="font-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
+                </div>
+                
+                <!-- Custom Styles -->
+                <div id="custom-styles-panel" class="bg-white p-4 rounded-lg border border-gray-200 mt-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Style & Sizing</h3>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label for="text-color-picker" class="block text-sm font-medium text-gray-600">Text Color</label>
+                                <input type="color" id="text-color-picker" data-style="textColor" class="mt-1 block w-full h-10 p-1 border border-gray-300 rounded-md cursor-pointer">
+                            </div>
+                            <div>
+                                <label for="highlight-color-picker" class="block text-sm font-medium text-gray-600">Highlight Color</label>
+                                <input type="color" id="highlight-color-picker" data-style="highlightColor" class="mt-1 block w-full h-10 p-1 border border-gray-300 rounded-md cursor-pointer">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="font-size-name" class="flex justify-between text-sm font-medium text-gray-600">Name Size <span id="font-size-name-value" class="font-bold"></span></label>
+                            <input type="range" id="font-size-name" data-style="fontSizeName" min="24" max="48" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                         <div>
+                            <label for="font-size-body" class="flex justify-between text-sm font-medium text-gray-600">Body Text Size <span id="font-size-body-value" class="font-bold"></span></label>
+                            <input type="range" id="font-size-body" data-style="fontSizeBody" min="9" max="14" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button id="download-pdf-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300">Download PDF</button>
+                </div>
+            </div>
+
+            <!-- Form Sections -->
+            <form id="resume-form" class="space-y-6">
+                <!-- Personal Info -->
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Personal Info</h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                            <div class="relative w-24 h-24 flex-shrink-0">
+                                <img id="photo-preview" class="h-full w-full rounded-full object-cover bg-gray-200 border border-gray-300 shadow-sm" src="" alt="Profile">
+                            </div>
+                            <div class="flex-grow space-y-2 w-full">
+                                <label for="photo" class="block w-full cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 text-center">
+                                    <span>Change Photo</span>
+                                    <input id="photo" name="photo" type="file" class="sr-only" accept="image/*">
+                                </label>
+                                <div class="bg-gray-50 p-3 rounded-md border border-gray-100 space-y-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Photo Vertical Alignment</label>
+                                        <input type="range" id="photo-y" min="0" max="100" step="1" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Photo Zoom</label>
+                                        <input type="range" id="photo-zoom" min="100" max="250" step="1" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="text" id="name" placeholder="Full Name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="jobTitle" placeholder="Job Title" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="phone" placeholder="Phone" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="email" id="email" placeholder="Email" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="address" placeholder="Address" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="linkedin" placeholder="LinkedIn Profile URL" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="github" placeholder="GitHub Profile URL" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="portfolio" placeholder="Portfolio/Website URL" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- Professional Summary -->
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Professional Summary</h3>
+                    <textarea id="summary" placeholder="Write a brief summary about your professional background..." class="w-full h-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+
+                <!-- Work Experience -->
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Work Experience</h3>
+                    <div id="experience-list" class="space-y-4"></div>
+                    <button type="button" id="add-experience" class="mt-4 w-full text-blue-600 font-semibold py-2 px-4 border-2 border-dashed border-blue-300 rounded-md hover:bg-blue-50 transition duration-300">Add Experience</button>
+                </div>
+
+                <!-- Education -->
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Education</h3>
+                    <div id="education-list" class="space-y-4"></div>
+                    <button type="button" id="add-education" class="mt-4 w-full text-blue-600 font-semibold py-2 px-4 border-2 border-dashed border-blue-300 rounded-md hover:bg-blue-50 transition duration-300">Add Education</button>
+                </div>
+
+                <!-- Professional Skills -->
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Professional Skills</h3>
+                        <span class="text-xs text-gray-400">Add multiple skills</span>
+                    </div>
+                    <div id="skills-list" class="space-y-2 mb-4"></div>
+                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="space-y-3">
+                            <input type="text" id="new-skill" placeholder="e.g. JavaScript, Public Speaking" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-600">Proficiency:</label>
+                                <div id="new-skill-rating" class="rating-stars flex items-center text-2xl">
+                                    <span class="star" data-value="1">☆</span>
+                                    <span class="star" data-value="2">☆</span>
+                                    <span class="star" data-value="3">☆</span>
+                                    <span class="star" data-value="4">☆</span>
+                                    <span class="star" data-value="5">☆</span>
+                                </div>
+                            </div>
+                            <button type="button" id="add-skill" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                                </svg>
+                                Add Skill
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Languages Known -->
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Languages Known</h3>
+                    <div id="languages-list" class="space-y-2 mb-4"></div>
+                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="space-y-3">
+                            <input type="text" id="new-language" placeholder="e.g. English, French" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-600">Level:</label>
+                                <div id="new-language-rating" class="rating-stars flex items-center text-2xl">
+                                    <span class="star" data-value="1">☆</span>
+                                    <span class="star" data-value="2">☆</span>
+                                    <span class="star" data-value="3">☆</span>
+                                    <span class="star" data-value="4">☆</span>
+                                    <span class="star" data-value="5">☆</span>
+                                </div>
+                            </div>
+                            <button type="button" id="add-language" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                                </svg>
+                                Add Language
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Declaration -->
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Declaration</h3>
+                    <textarea id="declaration" placeholder="e.g., I hereby declare that the information provided is true and correct." class="w-full h-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+            </form>
+        </aside>
+
+        <!-- Main Content - Resume Preview -->
+        <main class="w-full md:w-1/2 lg:w-2/3 bg-gray-100 p-6 flex items-start justify-center overflow-y-auto">
+            <div id="resume-preview-container" class="w-full max-w-4xl">
+                 <div id="resume-preview" class="bg-white w-full text-gray-800">
+                    <!-- Resume content will be injected here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- AI Assistant Floating Button -->
+    <button id="ai-assistant-btn" class="no-print fixed bottom-6 right-6 bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform duration-200 hover:scale-110">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+    </button>
+    
+    <!-- AI Assistant Modal -->
+    <div id="ai-modal" class="hidden no-print fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+        <div class="relative mx-auto p-6 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl leading-6 font-bold text-gray-900 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        Stylize with AI
+                    </h3>
+                    <button id="ai-modal-close" class="text-gray-400 hover:text-gray-600">&times;</button>
+                </div>
+                <div class="text-left space-y-4">
+                    <div>
+                        <label for="ai-context" class="block text-sm font-medium text-gray-700">Select section to improve:</label>
+                        <select id="ai-context" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"></select>
+                    </div>
+                    <div>
+                         <label for="ai-prompt" class="block text-sm font-medium text-gray-700">How can I help?</label>
+                        <textarea id="ai-prompt" rows="3" class="mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="e.g., Make this more concise, or rewrite for a software engineer role..."></textarea>
+                    </div>
+                    <button id="ai-generate-btn" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                         Generate
+                    </button>
+                </div>
+                <div id="ai-result-container" class="mt-4 text-left">
+                    <div id="ai-loading" style="display: none;" class="flex justify-center items-center p-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <p class="ml-3 text-gray-600">Generating...</p>
+                    </div>
+                    <textarea id="ai-result-preview" rows="6" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-50" style="display: none;"></textarea>
+                    <div id="ai-actions" class="mt-2 flex gap-2" style="display: none;">
+                       <button id="ai-copy-btn" class="flex-1 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-3 rounded">Copy</button>
+                       <button id="ai-insert-btn" class="flex-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-1 px-3 rounded">Insert</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { GoogleGenAI } from 'https://esm.run/@google/genai';
+
+        const app = {
+            // --- STATE ---
+            resumeData: {
+                photo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI0U1RTdFQiI+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMTguNjg1IDE5LjA5N0E5LjcyMyA5LjcyMyAwIDAgMCAyMS43NSAxMmMwLTUuMzg1LTQuMzY1LTkuNzUtOS43NS05Ljc1UzIuMjUgNi42MTUgMi4yNSAxMmE5LjcyMyA5LjcyMyAwIDAgMCAzLjA2NSA3LjA5N0E5LjcxNiA5LjcxNiAwIDAgMCAxMiAyMS43NWE5LjcxNiA5LjcxNiAwIDAgMCA2LjY4NS0yLjY1M1ptLTEyLjU0LTEuMjg1QTcuNDg2IDcuNDg2IDAgMCAxIDEyIDE1YTcuNDg2IDcuNDg2IDAgMCAxIDUuODU1IDIuODEyQTguMjI0IDguMjI0IDAgMCAxIDEyIDIwLjI1YTguMjI0IDguMjI0IDAgMCAxLTUuODU1LTIuNDM4Wk0xNS43NSA5YTMuNzUgMy43NSAwIDEgMS03LjUgMCAzLjc1IDMuNzUgMCAwIDEgNy41IDBaIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIC8+PC9zdmc+',
+                photoY: 50,
+                photoZoom: 100,
+                name: 'Your Name',
+                jobTitle: 'Your Job Title',
+                phone: '(123) 456-7890',
+                email: 'your.email@example.com',
+                address: '123 Main St, Anytown, USA',
+                linkedin: 'linkedin.com/in/yourprofile',
+                github: 'github.com/yourusername',
+                portfolio: 'yourportfolio.com',
+                summary: 'A brief and compelling summary of your professional background, skills, and career goals. Highlight your key achievements and expertise to capture the attention of recruiters.',
+                experience: [
+                    { id: Date.now() + 1, jobTitle: 'Senior Web Developer', company: 'Tech Solutions Inc.', dates: 'Jan 2020 - Present', description: '<li>Led front-end development for client projects.</li><li>Collaborated with UI/UX designers to create responsive and user-friendly interfaces.</li>' },
+                    { id: Date.now() + 2, jobTitle: 'Junior Web Developer', company: 'Web Wizards', dates: 'Jun 2018 - Dec 2019', description: '<li>Assisted in the development and maintenance of websites.</li><li>Worked with HTML, CSS, JavaScript, and React.</li>' },
+                ],
+                education: [
+                    { id: Date.now() + 3, degree: 'B.S. in Computer Science', school: 'University of Technology', dates: '2014 - 2018' }
+                ],
+                skills: [
+                    { id: Date.now() + 6, name: 'JavaScript / React', level: 5 },
+                    { id: Date.now() + 7, name: 'Node.js', level: 4 },
+                    { id: Date.now() + 8, name: 'Tailwind CSS', level: 5 },
+                ],
+                languages: [
+                    { id: Date.now() + 4, name: 'English', level: 5 },
+                    { id: Date.now() + 5, name: 'Spanish', level: 3 },
+                ],
+                declaration: 'I hereby declare that the information provided is true and correct.',
+            },
+            settings: {
+                theme: 'Modern',
+                font: "'Roboto', sans-serif",
+                template: 'Professional',
+                customStyles: {
+                    textColor: '#333333',
+                    highlightColor: '#e0f2fe',
+                    fontSizeName: '36',
+                    fontSizeTitle: '20',
+                    fontSizeSectionTitle: '18',
+                    fontSizeBody: '11',
+                }
+            },
+            ui: {
+                currentLanguageRating: 0,
+                currentSkillRating: 0,
+            },
+            ai: {
+                modalOpen: false,
+                loading: false,
+                context: '',
+                prompt: '',
+                result: '',
+                client: null,
+            },
+            themes: {
+                'Modern': '#2563eb',
+                'Classic': '#1f2937',
+                'Vibrant': '#db2777',
+                'Forest': '#166534',
+                'Executive': '#1e3a8a',
+                'Creative': '#0d9488',
+            },
+            fonts: {
+                'Roboto': "'Roboto', sans-serif",
+                'Open Sans': "'Open Sans', sans-serif",
+                'Lato': "'Lato', sans-serif",
+                'Montserrat': "'Montserrat', sans-serif",
+                'Source Sans Pro': "'Source Sans Pro', sans-serif",
+                'Merriweather': "'Merriweather', serif",
+                'Playfair Display': "'Playfair Display', serif",
+                'Poppins': "'Poppins', sans-serif",
+            },
+            templates: ['Professional', 'Compact', 'Modern', 'Creative', 'Technical', 'Minimalist', 'Timeline'],
+
+            // --- INITIALIZATION ---
+            init() {
+                if (process.env.API_KEY) {
+                    this.ai.client = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                }
+                this.loadState();
+                this.cacheDOMElements();
+                this.bindEvents();
+                this.renderApp();
+            },
+
+            cacheDOMElements() {
+                this.form = document.getElementById('resume-form');
+                this.preview = document.getElementById('resume-preview');
+                this.downloadPdfBtn = document.getElementById('download-pdf-btn');
+                this.photoInput = document.getElementById('photo');
+                this.photoPreview = document.getElementById('photo-preview');
+                this.photoYInput = document.getElementById('photo-y');
+                this.photoZoomInput = document.getElementById('photo-zoom');
+                this.themeSelector = document.getElementById('theme-selector');
+                this.fontSelect = document.getElementById('font-select');
+                this.templateSelector = document.getElementById('template-selector');
+                this.customStylesPanel = document.getElementById('custom-styles-panel');
+                this.experienceList = document.getElementById('experience-list');
+                this.educationList = document.getElementById('education-list');
+                this.skillsList = document.getElementById('skills-list');
+                this.newSkillRatingContainer = document.getElementById('new-skill-rating');
+                this.languagesList = document.getElementById('languages-list');
+                this.newLanguageRatingContainer = document.getElementById('new-language-rating');
+                this.aiBtn = document.getElementById('ai-assistant-btn');
+                this.aiModal = document.getElementById('ai-modal');
+                this.aiModalCloseBtn = document.getElementById('ai-modal-close');
+                this.aiContextSelect = document.getElementById('ai-context');
+                this.aiPromptTextarea = document.getElementById('ai-prompt');
+                this.aiGenerateBtn = document.getElementById('ai-generate-btn');
+                this.aiResultContainer = document.getElementById('ai-result-container');
+                this.aiLoading = document.getElementById('ai-loading');
+                this.aiResultPreview = document.getElementById('ai-result-preview');
+                this.aiActions = document.getElementById('ai-actions');
+                this.aiCopyBtn = document.getElementById('ai-copy-btn');
+                this.aiInsertBtn = document.getElementById('ai-insert-btn');
+            },
+            
+            bindEvents() {
+                this.form.addEventListener('input', this.handleFormInput.bind(this));
+                this.photoInput.addEventListener('change', this.handlePhotoUpload.bind(this));
+                this.photoYInput.addEventListener('input', (e) => this.updateState('photoY', parseInt(e.target.value)));
+                this.photoZoomInput.addEventListener('input', (e) => this.updateState('photoZoom', parseInt(e.target.value)));
+                this.form.addEventListener('click', this.handleFormClicks.bind(this));
+                this.newLanguageRatingContainer.addEventListener('click', this.handleLanguageRating.bind(this));
+                this.newSkillRatingContainer.addEventListener('click', this.handleSkillRating.bind(this));
+                this.themeSelector.addEventListener('click', this.handleThemeChange.bind(this));
+                this.fontSelect.addEventListener('change', this.handleFontChange.bind(this));
+                this.templateSelector.addEventListener('click', this.handleTemplateChange.bind(this));
+                this.customStylesPanel.addEventListener('input', this.handleCustomStyleChange.bind(this));
+                this.downloadPdfBtn.addEventListener('click', this.handleDownloadPdf.bind(this));
+                this.aiBtn.addEventListener('click', this.openAiModal.bind(this));
+                this.aiModalCloseBtn.addEventListener('click', this.closeAiModal.bind(this));
+                this.aiModal.addEventListener('click', (e) => { if (e.target === this.aiModal) this.closeAiModal(); });
+                this.aiGenerateBtn.addEventListener('click', this.handleAiGenerate.bind(this));
+                this.aiCopyBtn.addEventListener('click', this.handleAiCopy.bind(this));
+                this.aiInsertBtn.addEventListener('click', this.handleAiInsert.bind(this));
+            },
+
+            // --- STATE MANAGEMENT ---
+            updateState(key, value) {
+                const keys = key.split('.');
+                let current = this.resumeData;
+                for (let i = 0; i < keys.length - 1; i++) {
+                    current = current[keys[i]];
+                }
+                current[keys[keys.length - 1]] = value;
+                this.renderApp();
+                this.saveState();
+            },
+            
+            saveState() {
+                const state = { resumeData: this.resumeData, settings: this.settings };
+                localStorage.setItem('resumeState', JSON.stringify(state));
+            },
+
+            loadState() {
+                const savedState = localStorage.getItem('resumeState');
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    this.resumeData = { ...this.resumeData, ...parsedState.resumeData };
+                    this.settings = { ...this.settings, ...parsedState.settings };
+                    this.settings.customStyles = { ...app.settings.customStyles, ...(parsedState.settings.customStyles || {}) };
+                }
+            },
+
+            // --- EVENT HANDLERS ---
+            handleFormInput(e) {
+                const target = e.target;
+                if (target.id && this.resumeData.hasOwnProperty(target.id)) {
+                    this.updateState(target.id, target.value);
+                } else if (target.dataset.type && target.dataset.id && target.dataset.field) {
+                    this.updateListItem(target);
+                }
+            },
+            
+            updateListItem(input) {
+                const { type, id, field } = input.dataset;
+                const list = this.resumeData[type];
+                const itemIndex = list.findIndex(item => item.id == id);
+                if (itemIndex > -1) {
+                    let value = input.value;
+                    if (field === 'description') {
+                         value = value.split('\n').map(line => line.trim()).filter(line => line).map(line => `<li>${line}</li>`).join('');
+                    }
+                    list[itemIndex][field] = value;
+                    this.renderPreview();
+                    this.saveState();
+                }
+            },
+
+            handlePhotoUpload(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => { this.updateState('photo', event.target.result); };
+                    reader.readAsDataURL(file);
+                }
+            },
+            
+            handleFormClicks(e) {
+                if (e.target.id === 'add-experience' || e.target.closest('#add-experience')) this.addExperience();
+                if (e.target.id === 'add-education' || e.target.closest('#add-education')) this.addEducation();
+                if (e.target.id === 'add-language' || e.target.closest('#add-language')) this.addLanguage();
+                if (e.target.id === 'add-skill' || e.target.closest('#add-skill')) this.addSkill();
+                if (e.target.matches('.remove-item-btn')) this.removeItem(e.target);
+            },
+            
+            handleLanguageRating(e) {
+                const star = e.target.closest('.star');
+                if (!star) return;
+                const rating = parseInt(star.dataset.value, 10);
+                this.ui.currentLanguageRating = rating;
+                this.updateRatingUI(this.newLanguageRatingContainer, rating);
+            },
+
+            handleSkillRating(e) {
+                const star = e.target.closest('.star');
+                if (!star) return;
+                const rating = parseInt(star.dataset.value, 10);
+                this.ui.currentSkillRating = rating;
+                this.updateRatingUI(this.newSkillRatingContainer, rating);
+            },
+
+            updateRatingUI(container, rating) {
+                Array.from(container.children).forEach((s, i) => {
+                    s.classList.toggle('selected', i < rating);
+                    s.innerHTML = i < rating ? '★' : '☆';
+                });
+            },
+
+            handleThemeChange(e) {
+                const card = e.target.closest('.theme-card');
+                if (card && card.dataset.theme) {
+                    this.settings.theme = card.dataset.theme;
+                    this.renderApp();
+                    this.saveState();
+                }
+            },
+
+            handleFontChange(e) {
+                this.settings.font = e.target.value;
+                this.renderApp();
+                this.saveState();
+            },
+
+            handleTemplateChange(e) {
+                const card = e.target.closest('.template-card');
+                if (card && card.dataset.template) {
+                    this.settings.template = card.dataset.template;
+                    this.renderApp();
+                    this.saveState();
+                }
+            },
+            
+            handleCustomStyleChange(e) {
+                const { style } = e.target.dataset;
+                if (style && this.settings.customStyles.hasOwnProperty(style)) {
+                    this.settings.customStyles[style] = e.target.value;
+                    this.renderApp();
+                    this.saveState();
+                }
+            },
+
+            async handleDownloadPdf() {
+                const button = this.downloadPdfBtn;
+                const element = this.preview;
+                const originalStyle = { ...element.style };
+                button.disabled = true;
+                button.textContent = 'Generating...';
+                try {
+                    Object.assign(element.style, { width: '210mm', height: '297mm', margin: '0', boxShadow: 'none', transform: 'none', padding: '0' });
+                    const opt = { margin: 0, filename: 'resume.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+                    await html2pdf().from(element).set(opt).save();
+                } catch (error) {
+                    console.error("PDF generation failed", error);
+                    alert("PDF generation failed.");
+                } finally {
+                    Object.assign(element.style, originalStyle);
+                    button.disabled = false;
+                    button.textContent = 'Download PDF';
+                }
+            },
+
+            addExperience() {
+                this.resumeData.experience.push({ id: Date.now(), jobTitle: '', company: '', dates: '', description: '' });
+                this.renderFormLists();
+                this.saveState();
+            },
+            addEducation() {
+                this.resumeData.education.push({ id: Date.now(), degree: '', school: '', dates: '' });
+                this.renderFormLists();
+                this.saveState();
+            },
+            addSkill() {
+                const input = document.getElementById('new-skill');
+                const name = input.value.trim();
+                if (name && this.ui.currentSkillRating > 0) {
+                    this.resumeData.skills.push({ id: Date.now(), name, level: this.ui.currentSkillRating });
+                    input.value = '';
+                    this.ui.currentSkillRating = 0;
+                    this.updateRatingUI(this.newSkillRatingContainer, 0);
+                    this.renderApp();
+                }
+            },
+            addLanguage() {
+                const input = document.getElementById('new-language');
+                const name = input.value.trim();
+                if (name && this.ui.currentLanguageRating > 0) {
+                    this.resumeData.languages.push({ id: Date.now(), name, level: this.ui.currentLanguageRating });
+                    input.value = '';
+                    this.ui.currentLanguageRating = 0;
+                    this.updateRatingUI(this.newLanguageRatingContainer, 0);
+                    this.renderApp();
+                }
+            },
+            removeItem(button) {
+                const { type, id } = button.dataset;
+                this.resumeData[type] = this.resumeData[type].filter(item => item.id != id);
+                this.renderApp();
+                this.saveState();
+            },
+            
+            // --- AI ---
+            openAiModal() { if (this.ai.client) { this.ai.modalOpen = true; this.renderAiModal(); } },
+            closeAiModal() { this.ai.modalOpen = false; this.renderAiModal(); },
+            async handleAiGenerate() {
+                const userPrompt = this.aiPromptTextarea.value.trim();
+                const contextId = this.aiContextSelect.value;
+                if (!userPrompt) return;
+                this.ai.loading = true; this.renderAiModal();
+                try {
+                    const response = await this.ai.client.models.generateContent({
+                        model: "gemini-3-flash-preview",
+                        contents: `User request: ${userPrompt}\nContext section: ${this.aiContextSelect.options[this.aiContextSelect.selectedIndex].text}`,
+                        config: { systemInstruction: "Improve resume content. Output final text only.", temperature: 0.7 }
+                    });
+                    this.ai.result = response.text.trim();
+                } catch (e) { this.ai.result = "Error generation."; }
+                finally { this.ai.loading = false; this.renderAiModal(); }
+            },
+            handleAiCopy() { navigator.clipboard.writeText(this.aiResultPreview.value); },
+            handleAiInsert() {
+                const [type, id] = this.aiContextSelect.value.split('-');
+                if (type === 'summary') this.resumeData.summary = this.aiResultPreview.value;
+                else if (type === 'declaration') this.resumeData.declaration = this.aiResultPreview.value;
+                this.renderApp(); this.saveState(); this.closeAiModal();
+            },
+
+            // --- RENDERING ---
+            renderApp() {
+                this.applyCustomStyles();
+                this.populateForm();
+                this.renderFormLists();
+                this.renderPreview();
+                this.renderAiModal();
+            },
+            populateForm() {
+                ['name', 'jobTitle', 'phone', 'email', 'address', 'linkedin', 'github', 'portfolio', 'summary', 'declaration'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.value = this.resumeData[id] || '';
+                });
+                this.photoPreview.src = this.resumeData.photo;
+                this.photoPreview.style.objectPosition = `center ${this.resumeData.photoY}%`;
+                this.photoPreview.style.transform = `scale(${this.resumeData.photoZoom / 100})`;
+                this.photoYInput.value = this.resumeData.photoY || 50;
+                this.photoZoomInput.value = this.resumeData.photoZoom || 100;
+                this.renderCustomizationPanel();
+            },
+            renderFormLists() {
+                this.experienceList.innerHTML = this.resumeData.experience.map(exp => `<div class="p-3 border rounded bg-gray-50 relative space-y-2"><button type="button" class="remove-item-btn absolute top-2 right-2 text-red-500" data-type="experience" data-id="${exp.id}">&#x2715;</button><input type="text" data-type="experience" data-id="${exp.id}" data-field="jobTitle" value="${exp.jobTitle}" placeholder="Title" class="w-full px-2 py-1 border rounded"><textarea data-type="experience" data-id="${exp.id}" data-field="description" rows="2" class="w-full px-2 py-1 border rounded">${exp.description.replace(/<li>/g, '').replace(/<\/li>/g, '\n').trim()}</textarea></div>`).join('');
+                this.skillsList.innerHTML = this.resumeData.skills.map(s => `<div class="bg-indigo-50 text-indigo-800 text-xs px-2 py-1 rounded flex justify-between items-center"><span>${s.name} ${this.renderStars(s.level)}</span><button type="button" class="remove-item-btn text-red-400" data-type="skills" data-id="${s.id}">&#x2715;</button></div>`).join('');
+                this.languagesList.innerHTML = this.resumeData.languages.map(l => `<div class="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded flex justify-between items-center"><span>${l.name} ${this.renderStars(l.level)}</span><button type="button" class="remove-item-btn text-red-400" data-type="languages" data-id="${l.id}">&#x2715;</button></div>`).join('');
+            },
+            renderCustomizationPanel() {
+                this.themeSelector.innerHTML = Object.entries(this.themes).map(([name, color]) => `<div data-theme="${name}" class="theme-card p-1 border rounded cursor-pointer ${this.settings.theme === name ? 'selected' : ''}"><div style="background-color: ${color}" class="w-full h-4 rounded"></div></div>`).join('');
+                this.templateSelector.innerHTML = this.templates.map(name => `<div data-template="${name}" class="template-card p-1 border rounded text-[10px] text-center cursor-pointer ${this.settings.template === name ? 'selected' : ''}">${name}</div>`).join('');
+                this.fontSelect.innerHTML = Object.entries(this.fonts).map(([n,v]) => `<option value="${v}" ${this.settings.font === v ? 'selected' : ''}>${n}</option>`).join('');
+                ['fontSizeName', 'fontSizeBody'].forEach(k => {
+                    const el = document.querySelector(`[data-style="${k}"]`);
+                    if(el) { el.value = this.settings.customStyles[k]; document.getElementById(`${el.id}-value`).innerText = el.value; }
+                });
+            },
+            applyCustomStyles() {
+                const styles = this.settings.customStyles;
+                this.preview.style.setProperty('--primary-color', this.themes[this.settings.theme]);
+                this.preview.style.setProperty('--font-family', this.settings.font);
+                this.preview.style.setProperty('--font-size-name', `${styles.fontSizeName}px`);
+                this.preview.style.setProperty('--font-size-body', `${styles.fontSizeBody}px`);
+            },
+            renderStars(level, color = '#f59e0b') {
+                let stars = '';
+                for (let i = 1; i <= 5; i++) {
+                    stars += `<span style="color: ${i <= level ? color : '#d1d5db'};">★</span>`;
+                }
+                return stars;
+            },
+            renderPreview() {
+                const d = this.resumeData;
+                const p = (title) => `<h2 class="font-bold uppercase mt-4 pb-1 mb-2 border-b-2" style="font-size: 1.1em; color: var(--primary-color); border-color: var(--primary-color);">${title}</h2>`;
+                const skillsHtml = (color) => `<div class="space-y-0.5">${d.skills.map(s => `<div class="flex justify-between text-sm"><span>${s.name}</span><span>${this.renderStars(s.level, color)}</span></div>`).join('')}</div>`;
+                const langsHtml = (color) => `<div class="space-y-0.5">${d.languages.map(l => `<div class="flex justify-between text-sm"><span>${l.name}</span><span>${this.renderStars(l.level, color)}</span></div>`).join('')}</div>`;
+                const contactHtml = `
+                    <div class="space-y-1 text-sm">
+                        ${d.phone ? `<div>${d.phone}</div>` : ''}
+                        ${d.email ? `<div>${d.email}</div>` : ''}
+                        ${d.linkedin ? `<div>${d.linkedin}</div>` : ''}
+                    </div>`;
+
+                const photoStyle = `background-image: url('${d.photo}'); background-position: center ${d.photoY}%; background-size: ${d.photoZoom}%;`;
+                
+                let html = '';
+                switch (this.settings.template) {
+                    case 'Compact':
+                    case 'Modern':
+                        const isM = this.settings.template === 'Modern';
+                        const starColor = isM ? 'white' : 'var(--primary-color)';
+                        html = `
+                            <div class="flex h-full" style="font-size: var(--font-size-body);">
+                                <aside class="w-1/3 p-6" style="background-color: ${isM ? 'var(--primary-color)' : '#f3f4f6'}; color: ${isM ? 'white' : '#374151'};">
+                                    <div class="w-24 h-24 rounded-full mx-auto mb-6 bg-cover border-4 border-white shadow" style="${photoStyle}"></div>
+                                    <h1 class="font-bold text-center mb-1" style="font-size: var(--font-size-name);">${d.name}</h1>
+                                    <p class="text-center opacity-80 mb-6">${d.jobTitle}</p>
+                                    <div class="mt-8">
+                                        <h3 class="font-bold uppercase border-b border-gray-400 mb-2">Contact</h3>
+                                        ${contactHtml}
+                                    </div>
+                                    <div class="mt-6">
+                                        <h3 class="font-bold uppercase border-b border-gray-400 mb-2">Skills</h3>
+                                        ${skillsHtml(starColor)}
+                                    </div>
+                                    <div class="mt-6">
+                                        <h3 class="font-bold uppercase border-b border-gray-400 mb-2">Languages</h3>
+                                        ${langsHtml(starColor)}
+                                    </div>
+                                </aside>
+                                <main class="w-2/3 p-8">
+                                    ${p('Profile')}<p class="mb-6">${d.summary}</p>
+                                    ${p('Experience')}<div class="space-y-4">${d.experience.map(e => `<div><h4 class="font-bold">${e.jobTitle}</h4><ul class="list-disc ml-4">${e.description}</ul></div>`).join('')}</div>
+                                    ${p('Education')}<div class="space-y-2">${d.education.map(ed => `<div><h4 class="font-bold">${ed.degree}</h4><p>${ed.school}</p></div>`).join('')}</div>
+                                </main>
+                            </div>`;
+                        break;
+                    default:
+                        html = `<div class="p-8"><h1 style="font-size: var(--font-size-name); color: var(--primary-color);" class="font-bold text-center mb-2">${d.name}</h1><p class="text-center text-gray-500 mb-6">${d.jobTitle}</p><hr>${p('Summary')}<p>${d.summary}</p>${p('Skills')}${skillsHtml('var(--primary-color)')}${p('Experience')}${d.experience.map(e => `<div class="mb-4"><h3 class="font-bold">${e.jobTitle}</h3><ul>${e.description}</ul></div>`).join('')}</div>`;
+                }
+                this.preview.innerHTML = html;
+            },
+            renderAiModal() {
+                this.aiModal.classList.toggle('hidden', !this.ai.modalOpen);
+            }
+        };
+
+        app.init();
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
